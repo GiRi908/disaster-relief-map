@@ -1,38 +1,30 @@
 import { createContext, useContext, useState, useEffect } from "react";
 
 const ThemeContext = createContext({
-  theme: "dark",
+  theme: "light",
   toggleTheme: () => { },
 });
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState("dark");
-
-  // Initialize theme from localStorage on mount
-  useEffect(() => {
+  const [theme, setTheme] = useState(() => {
     try {
-      const saved = localStorage.getItem("theme");
-      if (saved === "light" || saved === "dark") {
-        setTheme(saved);
-      } else if (window.matchMedia("(prefers-color-scheme: light)").matches) {
-        setTheme("light");
-      }
-    } catch (e) {
-      console.log("Could not access localStorage");
-    }
-  }, []);
+      const saved = localStorage.getItem("theme_mode");
+      if (saved === "light" || saved === "dark") return saved;
+    } catch (e) {}
+    return "light";
+  });
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     try {
-      localStorage.setItem("theme", theme);
+      localStorage.setItem("theme_mode", theme);
     } catch (e) {
       console.log("Could not save to localStorage");
     }
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === "dark" ? "light" : "dark");
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   };
 
   return (

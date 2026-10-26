@@ -26,23 +26,26 @@ export default function DashboardLayout() {
   };
 
   return (
-    <div className="dashboard-layout">
-      {/* Mobile overlay */}
-      <div
-        className={`sidebar-overlay ${sidebarOpen ? 'show' : ''}`}
-        onClick={closeMobileSidebar}
-      />
+    <div className="app-viewport">
+      <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+        {/* Mobile overlay */}
+        <div
+          className={`sidebar-overlay ${sidebarOpen ? "show" : ""}`}
+          onClick={closeMobileSidebar}
+        />
 
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        mobileOpen={sidebarOpen}
-        onClose={closeMobileSidebar}
-      />
-      <div className="main-content">
-        <Header toggleSidebar={toggleSidebar} />
-        <main className="page-content">
-          <Outlet />
-        </main>
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          mobileOpen={sidebarOpen}
+          onClose={closeMobileSidebar}
+          onToggleCollapse={toggleSidebar}
+        />
+        <div className={`main-content ${sidebarCollapsed ? "collapsed-sidebar" : ""}`}>
+          <Header toggleSidebar={toggleSidebar} />
+          <main className="page-content">
+            <Outlet />
+          </main>
+        </div>
       </div>
     </div>
   );

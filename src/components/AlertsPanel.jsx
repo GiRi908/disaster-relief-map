@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { db } from "../firebase";
 import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 
@@ -34,7 +35,7 @@ const Icons = {
   clock: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
-      <polyline points="12,6 12,12 16,14" />
+      <polyline points="12 6 12 12 16 14" />
     </svg>
   ),
   empty: (
@@ -42,11 +43,19 @@ const Icons = {
       <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
     </svg>
   ),
+  mapPin: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+      <line x1="8" y1="2" x2="8" y2="18" />
+      <line x1="16" y1="6" x2="16" y2="22" />
+    </svg>
+  ),
 };
 
 export default function AlertsPanel() {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
 
   const staticAlerts = [
     {
@@ -131,51 +140,107 @@ export default function AlertsPanel() {
 
   if (loading) {
     return (
-      <div className="loading">
-        <div className="loading-spinner"></div>
+      <div className="saas-loading-wrap">
+        <div className="saas-loading-spinner"></div>
       </div>
     );
   }
 
+  const criticalCount = alerts.filter(a => a.severity === "critical").length;
+  const warningCount = alerts.filter(a => a.severity === "warning").length;
+  const infoCount = alerts.filter(a => a.severity !== "critical" && a.severity !== "warning").length;
+
+  const filteredAlerts = alerts.filter(a => {
+    if (filter === "all") return true;
+    if (filter === "critical") return a.severity === "critical";
+    if (filter === "warning") return a.severity === "warning";
+    if (filter === "info") return a.severity !== "critical" && a.severity !== "warning";
+    return true;
+  });
+
   return (
-    <div>
-      <div className="page-header">
-        <h1 className="page-title">Active Alerts</h1>
-        <p className="page-subtitle">Real-time disaster alerts and notifications</p>
+    <div className="alerts-container">
+      {/* Subheader and filter bar */}
+      <div className="alerts-header-bar">
+        <div className="alerts-subtitle-block">
+          <p className="alerts-subtitle">
+            Real-time emergency broadcast notifications and disaster alerts across operational zones.
+          </p>
+        </div>
+
+        {/* Severity filter pills */}
+        <div className="alerts-filter-pills">
+          <button
+            type="button"
+            className={`alerts-filter-pill ${filter === "all" ? "active" : ""}`}
+            onClick={() => setFilter("all")}
+          >
+            All Alerts ({alerts.length})
+          </button>
+          <button
+            type="button"
+            className={`alerts-filter-pill critical ${filter === "critical" ? "active" : ""}`}
+            onClick={() => setFilter("critical")}
+          >
+            Critical ({criticalCount})
+          </button>
+          <button
+            type="button"
+            className={`alerts-filter-pill warning ${filter === "warning" ? "active" : ""}`}
+            onClick={() => setFilter("warning")}
+          >
+            Warning ({warningCount})
+          </button>
+          <button
+            type="button"
+            className={`alerts-filter-pill info ${filter === "info" ? "active" : ""}`}
+            onClick={() => setFilter("info")}
+          >
+            Low / Info ({infoCount})
+          </button>
+        </div>
       </div>
 
-      {alerts.length === 0 ? (
-        <div className="card">
+      {filteredAlerts.length === 0 ? (
+        <div className="saas-card">
           <div className="empty-state">
             <div className="empty-state-icon">{Icons.empty}</div>
-            <div className="empty-state-title">No active alerts</div>
-            <p>All clear! No disaster alerts at this time.</p>
+            <div className="empty-state-title">No active alerts found</div>
+            <p>No disaster alerts match the selected filter category.</p>
           </div>
         </div>
       ) : (
         <div className="alerts-list">
-          {alerts.map(alert => (
+          {filteredAlerts.map((alert) => (
             <div key={alert.id} className="alert-card">
               <div className={`alert-icon ${alert.severity || "info"}`}>
                 {getSeverityIcon(alert.severity)}
               </div>
               <div className="alert-content">
-                <div className="alert-title">{alert.type}</div>
+                <div className="alert-top-row">
+                  <h3 className="alert-title">{alert.type}</h3>
+                  <span className={`alert-badge ${alert.severity || "info"}`}>
+                    {alert.severity || "info"}
+                  </span>
+                </div>
                 <div className="alert-description">
-                  {alert.description || `Reported at ${alert.location}`}
+                  {alert.description || `Field notification reported at ${alert.location}`}
                 </div>
                 <div className="alert-meta">
-                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                    {Icons.location} {alert.location}
+                  <span className="alert-meta-item">
+                    {Icons.location}
+                    <span>{alert.location || "Assigned Sector"}</span>
                   </span>
-                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                    {Icons.clock} {formatTime(alert.timestamp)}
+                  <span className="alert-meta-item">
+                    {Icons.clock}
+                    <span>{formatTime(alert.timestamp)}</span>
                   </span>
                 </div>
               </div>
-              <span className={`alert-badge ${alert.severity || "info"}`}>
-                {alert.severity || "info"}
-              </span>
+              <Link to="/map" className="alert-action-btn" title="View on Map">
+                {Icons.mapPin}
+                <span>View Map</span>
+              </Link>
             </div>
           ))}
         </div>

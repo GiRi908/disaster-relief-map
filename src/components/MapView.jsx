@@ -52,17 +52,17 @@ export default function MapView() {
   useEffect(() => {
     const q = query(collection(db, "reports"), orderBy("timestamp", "desc"));
 
-    const unsubscribe = onSnapshot(q,
+    const unsubscribe = onSnapshot(
+      q,
       (snapshot) => {
         const reports = snapshot.docs
-          .map(doc => ({
+          .map((doc) => ({
             id: doc.id,
             ...doc.data(),
             timestamp: doc.data().timestamp?.toDate() || new Date(),
           }))
-          .filter(report => report.lat && report.lng); // Only include reports with coordinates
+          .filter((report) => report.lat && report.lng); // Only include reports with coordinates
 
-        // Use Firebase data if available, otherwise use static data
         if (reports.length > 0) {
           setDisasterData(reports);
         } else {
@@ -80,15 +80,14 @@ export default function MapView() {
     return () => unsubscribe();
   }, []);
 
-  // Initialize and update map
+  // Initialize Map
   useEffect(() => {
-    if (loading) return;
+    if (loading || !mapRef.current) return;
 
-    // Initialize map if not already done
-    if (!mapInstanceRef.current && mapRef.current) {
+    if (!mapInstanceRef.current) {
       const map = L.map(mapRef.current, {
         zoomControl: false,
-        attributionControl: false
+        attributionControl: false,
       }).setView([20.5937, 78.9629], 5);
 
       mapInstanceRef.current = map;
@@ -97,20 +96,35 @@ export default function MapView() {
         maxZoom: 19,
       }).addTo(map);
 
+      // Force size invalidation so tiles draw correctly
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 150);
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 500);
+
       // Click-to-Report: Click on map to get coordinates
-      map.on('click', (e) => {
+      map.on("click", (e) => {
         const { lat, lng } = e.latlng;
         setClickedLocation({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
       });
     }
+  }, [loading]);
+
+  // Update Markers
+  useEffect(() => {
+    if (!mapInstanceRef.current || disasterData.length === 0) return;
+
+    // Force map size refresh
+    mapInstanceRef.current.invalidateSize();
 
     // Clear existing markers
-    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
     // Add markers for each disaster
-    disasterData.forEach(disaster => {
-      // Color by disaster TYPE
+    disasterData.forEach((disaster) => {
       const color = getTypeColor(disaster.type);
       const pulseSize = disaster.severity === "critical" ? 40 : 30;
 
@@ -127,8 +141,9 @@ export default function MapView() {
         iconAnchor: [pulseSize / 2, pulseSize / 2],
       });
 
-      const marker = L.marker([disaster.lat, disaster.lng], { icon })
-        .addTo(mapInstanceRef.current);
+      const marker = L.marker([disaster.lat, disaster.lng], { icon }).addTo(
+        mapInstanceRef.current
+      );
 
       // Popup with disaster details
       const popupContent = `
@@ -136,35 +151,37 @@ export default function MapView() {
           <strong style="font-size: 14px; color: ${color};">${disaster.type}</strong>
           <div style="font-size: 12px; color: #666; margin: 4px 0;">${disaster.location}</div>
           <div style="display: flex; gap: 8px; margin-top: 8px;">
-            <span style="background: ${disaster.severity === 'critical' ? '#fee2e2' : disaster.severity === 'warning' ? '#fef3c7' : '#dbeafe'}; 
-                         color: ${disaster.severity === 'critical' ? '#dc2626' : disaster.severity === 'warning' ? '#d97706' : '#2563eb'};
+            <span style="background: ${disaster.severity === "critical" ? "#fee2e2" : disaster.severity === "warning" ? "#fef3c7" : "#dbeafe"}; 
+                         color: ${disaster.severity === "critical" ? "#dc2626" : disaster.severity === "warning" ? "#d97706" : "#2563eb"};
                          padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
-              ${disaster.severity || 'info'}
+              ${disaster.severity || "info"}
             </span>
             <span style="background: #f3f4f6; color: #374151; padding: 2px 8px; border-radius: 4px; font-size: 11px;">
-              ${disaster.status || 'pending'}
+              ${disaster.status || "pending"}
             </span>
           </div>
         </div>
       `;
       marker.bindPopup(popupContent);
 
-      marker.on('click', () => {
+      marker.on("click", () => {
         setSelectedDisaster(disaster);
         mapInstanceRef.current.flyTo([disaster.lat, disaster.lng], 8, { duration: 1 });
       });
 
       markersRef.current.push(marker);
     });
+  }, [disasterData]);
 
+  // Clean up on component unmount only
+  useEffect(() => {
     return () => {
-      // Cleanup on unmount
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
-  }, [disasterData, loading]);
+  }, []);
 
   const handleZoomIn = () => mapInstanceRef.current?.zoomIn();
   const handleZoomOut = () => mapInstanceRef.current?.zoomOut();
@@ -202,22 +219,22 @@ export default function MapView() {
 
   const stats = {
     total: disasterData.length,
-    critical: disasterData.filter(d => d.severity === "critical").length,
-    warning: disasterData.filter(d => d.severity === "warning").length,
-    info: disasterData.filter(d => d.severity === "info").length,
+    critical: disasterData.filter((d) => d.severity === "critical").length,
+    warning: disasterData.filter((d) => d.severity === "warning").length,
+    info: disasterData.filter((d) => d.severity === "info").length,
   };
 
   if (loading) {
     return (
-      <div className="loading">
-        <div className="loading-spinner"></div>
+      <div className="saas-loading-wrap">
+        <div className="saas-loading-spinner"></div>
       </div>
     );
   }
 
   return (
     <div className="map-view-container">
-      {/* Map Panel Info */}
+      {/* Map Panel Info Sidebar */}
       <div className="map-sidebar">
         <div className="map-sidebar-header">
           <h2>Live Incidents</h2>
@@ -245,10 +262,10 @@ export default function MapView() {
 
         {/* Disaster List */}
         <div className="map-disaster-list">
-          {disasterData.map(disaster => (
+          {disasterData.map((disaster) => (
             <div
               key={disaster.id}
-              className={`map-disaster-item ${selectedDisaster?.id === disaster.id ? 'active' : ''}`}
+              className={`map-disaster-item ${selectedDisaster?.id === disaster.id ? "active" : ""}`}
               onClick={() => {
                 setSelectedDisaster(disaster);
                 mapInstanceRef.current?.flyTo([disaster.lat, disaster.lng], 8, { duration: 1 });
@@ -262,7 +279,7 @@ export default function MapView() {
                 <div className="map-disaster-type">{disaster.type}</div>
                 <div className="map-disaster-location">{disaster.location}</div>
               </div>
-              <div className={`map-disaster-status ${(disaster.status || 'active').toLowerCase()}`}>
+              <div className={`map-disaster-status ${(disaster.status || "active").toLowerCase()}`}>
                 {getStatusLabel(disaster.status)}
               </div>
             </div>
@@ -293,24 +310,24 @@ export default function MapView() {
         </div>
       </div>
 
-      {/* Map Container */}
+      {/* Map Main Canvas */}
       <div className="map-main">
         <div ref={mapRef} className="map-canvas"></div>
 
         {/* Map Controls */}
         <div className="map-controls">
-          <button className="map-control-btn" onClick={handleZoomIn} title="Zoom In">
+          <button className="map-control-btn" onClick={handleZoomIn} title="Zoom In" type="button">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
           </button>
-          <button className="map-control-btn" onClick={handleZoomOut} title="Zoom Out">
+          <button className="map-control-btn" onClick={handleZoomOut} title="Zoom Out" type="button">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
           </button>
-          <button className="map-control-btn" onClick={handleReset} title="Reset View">
+          <button className="map-control-btn" onClick={handleReset} title="Reset View" type="button">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
               <circle cx="12" cy="12" r="6" />
@@ -319,10 +336,10 @@ export default function MapView() {
           </button>
         </div>
 
-        {/* Selected Disaster Info */}
+        {/* Selected Disaster Info Popup */}
         {selectedDisaster && (
           <div className="map-info-card">
-            <button className="map-info-close" onClick={() => setSelectedDisaster(null)}>
+            <button className="map-info-close" onClick={() => setSelectedDisaster(null)} type="button">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
@@ -341,14 +358,14 @@ export default function MapView() {
             <div className="map-info-details">
               <div className="map-info-row">
                 <span>Severity</span>
-                <span className={`alert-badge ${selectedDisaster.severity}`}>
-                  {selectedDisaster.severity}
+                <span className={`alert-badge ${selectedDisaster.severity || "info"}`}>
+                  {selectedDisaster.severity || "info"}
                 </span>
               </div>
               {selectedDisaster.affectedPeople && (
                 <div className="map-info-row">
                   <span>Affected</span>
-                  <span>{selectedDisaster.affectedPeople} people</span>
+                  <span>{selectedDisaster.affectedPeople}</span>
                 </div>
               )}
               <div className="map-info-row">
@@ -362,40 +379,38 @@ export default function MapView() {
                 </div>
               )}
               {selectedDisaster.description && (
-                <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border-subtle)" }}>
-                  <span style={{ fontSize: "0.75rem", color: "var(--text-50)", display: "block", marginBottom: "4px" }}>Description</span>
-                  <span style={{ fontSize: "0.875rem", color: "var(--text-70)" }}>{selectedDisaster.description}</span>
+                <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: "1px solid var(--border-light)" }}>
+                  <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>Description</span>
+                  <span style={{ fontSize: "0.8125rem", color: "var(--text-main)" }}>{selectedDisaster.description}</span>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Click-to-Report Popup */}
+        {/* Click-to-Report Banner */}
         {clickedLocation && !selectedDisaster && (
-          <div className="map-info-card" style={{ maxWidth: "280px" }}>
-            <button className="map-info-close" onClick={() => setClickedLocation(null)}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <div className="map-click-banner">
+            <div>
+              <strong>Coordinates:</strong> {clickedLocation.lat}, {clickedLocation.lng}
+            </div>
+            <button
+              className="saas-primary-btn"
+              onClick={handleReportFromMap}
+              type="button"
+            >
+              Report Incident Here
+            </button>
+            <button
+              className="map-info-close"
+              onClick={() => setClickedLocation(null)}
+              style={{ position: "static", marginLeft: 4 }}
+              type="button"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
-            </button>
-            <div style={{ marginBottom: "12px" }}>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-50)", marginBottom: "4px" }}>📍 Selected Location</div>
-              <div style={{ fontSize: "0.875rem", color: "var(--text-100)" }}>
-                {clickedLocation.lat}, {clickedLocation.lng}
-              </div>
-            </div>
-            <button
-              className="btn btn-primary"
-              onClick={handleReportFromMap}
-              style={{ width: "100%", padding: "10px" }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: "8px" }}>
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
-              Report Disaster Here
             </button>
           </div>
         )}
@@ -403,4 +418,3 @@ export default function MapView() {
     </div>
   );
 }
-
